@@ -12,10 +12,11 @@ set.seed(42)
 # Generating the cross_validation object
 n_rep <- 30
 
-for (n in c(30,100,1000)) {
-
-# Generating the model eigth
-sim_data <- model_eigth(n = n,
+# for (n in c(30,100,300,1000)) {
+  for (n in c(100)) {
+    
+# Generating the model two
+sim_data <- model_two(n = n, d = 10,
           seed = 42)
 
 
@@ -45,9 +46,8 @@ for(i in 1:n_rep) {
                          validation_ratio = 0.2,seed = 42+i)
   
   train <- cv$train_sample
-  validation <- cv$validation_sample
-  test <- cv$test_sample
-  
+  validation <- test <- rbind(cv$validation_sample,cv$test_sample)
+
   # Starting by the linear first
   
   # Reducing the tuning grid for the linear case where there's no hypera-parameter
@@ -65,7 +65,7 @@ for(i in 1:n_rep) {
     
       
       # Saving the time for model init
-      time_init <- Sys.time()
+      time_init_lin <- Sys.time()
       
       mod_svr_lin <- kernlab::ksvm(y ~ ., data = train,
                                C = tuning_lin[k,"C"],
@@ -75,28 +75,29 @@ for(i in 1:n_rep) {
       validation_svr_lin <- predict(mod_svr_lin, newdata = validation)
       test_svr_lin <- predict(mod_svr_lin, newdata = test)
        
-      time_end <- Sys.time()
+      time_end_lin <- Sys.time()
       
-      result_tuning_svr_lin[[k]] <- list(time = (time_end-time_init),
+      result_tuning_svr_lin[[k]] <- list(time = (time_end_lin-time_init_lin),
                                      validation_pred_svr = validation_svr_lin,
                                      test_svr_lin = test_svr_lin,
                                      C = tuning_lin[k,"C"],
                                      epsilon = tuning_lin[k,"eps"])
       
       # Saving the time for model init
-      time_init <- Sys.time()
+      time_init_pol <- Sys.time()
       
       mod_svr_pol <- kernlab::ksvm(y ~ ., data = train,
                                    C = tuning_lin[k,"C"],
                                    epsilon = tuning_lin[k,"eps"],
-                                   kernel = "polydot")
+                                   kernel = "polydot",
+                                   kpar = list("degree" = 2))
       # Saving those values
       validation_svr_pol <- predict(mod_svr_pol, newdata = validation)
       test_svr_pol <- predict(mod_svr_pol, newdata = test)
       
-      time_end <- Sys.time()
+      time_end_pol <- Sys.time()
       
-      result_tuning_svr_pol[[k]] <- list(time = (time_end-time_init),
+      result_tuning_svr_pol[[k]] <- list(time = (time_end_pol-time_init_pol),
                                          validation_pred_svr = validation_svr_pol,
                                          test_svr_pol = test_svr_pol,
                                          C = tuning_lin[k,"C"],
@@ -108,7 +109,7 @@ for(i in 1:n_rep) {
   for(k in 1:nrow(tuning_grid)){
     
     # Saving the time for model init
-    time_init <- Sys.time()
+    time_init_rbf <- Sys.time()
     
     mod_svr_rbf <- kernlab::ksvm(y ~ ., data = train,
                                  C = tuning_grid[k,"C"],
@@ -120,9 +121,9 @@ for(i in 1:n_rep) {
     validation_svr_rbf <- predict(mod_svr_rbf, newdata = validation)
     test_svr_rbf <- predict(mod_svr_rbf, newdata = test)
     
-    time_end <- Sys.time()
+    time_end_rbf <- Sys.time()
     
-    result_tuning_svr_rbf[[k]] <- list(time = (time_end-time_init),
+    result_tuning_svr_rbf[[k]] <- list(time = (time_end_rbf-time_init_rbf),
                                        validation_pred_svr = validation_svr_rbf,
                                        test_svr_rbf = test_svr_rbf,
                                        C = tuning_grid[k,"C"],
@@ -130,7 +131,7 @@ for(i in 1:n_rep) {
                                        gamma = tuning_grid[k,"gamma"])
     
     # Saving the time for model init
-    time_init <- Sys.time()
+    time_init_lap <- Sys.time()
     
     mod_svr_lap <- kernlab::ksvm(y ~ ., data = train,
                                  C = tuning_grid[k,"C"],
@@ -141,9 +142,9 @@ for(i in 1:n_rep) {
     validation_svr_lap <- predict(mod_svr_lap, newdata = validation)
     test_svr_lap <- predict(mod_svr_lap, newdata = test)
     
-    time_end <- Sys.time()
+    time_end_lap <- Sys.time()
     
-    result_tuning_svr_lap[[k]] <- list(time = (time_end-time_init),
+    result_tuning_svr_lap[[k]] <- list(time = (time_end_lap-time_init_lap),
                                        validation_pred_svr = validation_svr_lap,
                                        test_svr_lap = test_svr_lap,
                                        C = tuning_grid[k,"C"],
@@ -160,9 +161,10 @@ for(i in 1:n_rep) {
   # Creating a data.frame to store the results from svm.lin and so on
   time_init_rm <- Sys.time()
   rm_mod <- regression_random_machines(formula = y~.,
-                                train = train,validation = validation,
-                                test = test,loss_function = RMSE,
-                                boots_size =  25)
+                                train = train,validation = train,
+                                test = test,loss_function = RMSE,epsilon = 0.01,
+                                boots_size =  25,automatic_tuning = TRUE)
+  
   rrm_predict <- predict_rrm_model(mod = rm_mod)
   time_end_rm <- Sys.time()
   
@@ -188,5 +190,5 @@ for(i in 1:n_rep) {
 
 # Saving models
 saveRDS(store_result_list,
-        file = paste0("storing_results/n_",n,"_holdout_",n_rep,"_scenario_eigth.Rds"))
+        file = paste0("storing_results/new_WITH_GAMMA_FIX_B_25_n_",n,"_holdout_",n_rep,"_scenario_two.Rds"))
 }
